@@ -136,11 +136,25 @@
 
 <script>
   // Google STUN Configuration เพื่อให้ข้าม Firewall/NAT ได้เสถียรขึ้น
-  const peerConfig = {
+const peerConfig = {
     config: {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+        // เพิ่ม Open Relay TURN Server สำหรับส่งข้อมูลข้ามเครือข่าย
+        {
+          urls: 'turn:openrelay.metered.ca:80',
+          username: 'openrelay',
+          credential: 'openrelay'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443',
+          username: 'openrelay',
+          credential: 'openrelay'
+        }
       ]
     }
   };
@@ -345,15 +359,22 @@
   function submitScore(id, diff) {
     if (!playerResults[id]) return;
     playerResults[id].scores[currentRound - 1] = diff;
-    if (playerResults[id].scores.length === maxRounds) {
-      const sum = playerResults[id].scores.reduce((a, b) => a + (b || 0), 0);
+    
+    // นับเฉพาะรอบที่มีการบันทึกคะแนนจริง
+    const validScores = playerResults[id].scores.filter(s => s !== null && s !== undefined);
+    if (validScores.length === maxRounds) {
+      const sum = validScores.reduce((a, b) => a + b, 0);
       playerResults[id].totalDiff = sum;
     }
   }
 
   function checkAndAnnounceWinner() {
     const players = Object.values(playerResults);
-    const allFinished = players.length > 0 && players.every(p => p.scores.length === maxRounds);
+    // ตรวจสอบว่าผู้เล่นทุกคนเล่นครบ 3 รอบแล้วจริงๆ
+    const allFinished = players.length > 0 && players.every(p => {
+      const validScores = p.scores.filter(s => s !== null && s !== undefined);
+      return validScores.length === maxRounds;
+    });
 
     if (allFinished) {
       const sorted = [...players].sort((a, b) => a.totalDiff - b.totalDiff);
@@ -442,6 +463,8 @@
   }
 
   function resetRoundUI() {
+    clearInterval(timerInterval); // เคลียร์ Interval เดิมออก
+    isRunning = false;           // รีเซ็ตสถานะปุ่ม
     timeDisplay.innerText = "00:00.00";
     actionBtn.disabled = false;
     actionBtn.classList.remove('stop');
