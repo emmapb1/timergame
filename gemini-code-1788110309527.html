@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Online Timer Game (Fixed Connection)</title>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    :root {
+      --bg-color: #f0f7f6;
+      --card-bg: #ffffff;
+      --primary: #28a745;
+      --danger: #e04826;
+      --text: #2c3e50;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg-color); color: var(--text); display: flex; justify-content: center; padding: 20px; }
+    .container { width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 16px; }
+    
+    .card { background: var(--card-bg); border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    h1 { text-align: center; font-size: 1.5rem; }
+
+    .boards { display: flex; gap: 12px; }
+    .board { flex: 1; background: #111; color: #fff; border-radius: 12px; padding: 14px; text-align: center; }
+    .board-label { font-size: 0.75rem; font-weight: bold; margin-bottom: 4px; letter-spacing: 1px; }
+    .board-label.target { color: #ff6b6b; }
+    .board-label.time { color: #51cf66; }
+    .digital-clock { font-family: monospace; font-size: 1.7rem; font-weight: bold; }
+    .val-target { color: #ff6b6b; }
+    .val-time { color: #51cf66; }
+
+    .btn-circle {
+      width: 140px; height: 140px; border-radius: 50%; border: none;
+      background: radial-gradient(circle at 30% 30%, #51cf66, #28a745);
+      color: white; font-weight: bold; font-size: 1.3rem; cursor: pointer;
+      box-shadow: 0 8px 20px rgba(40, 167, 69, 0.3); margin: 20px auto;
+      display: flex; justify-content: center; align-items: center;
+      transition: transform 0.05s ease;
+    }
+    .btn-circle:active { transform: scale(0.95); }
+    .btn-circle.stop { background: radial-gradient(circle at 30% 30%, #ff6b6b, var(--danger)); }
+    .btn-circle:disabled { background: #bbb; cursor: not-allowed; box-shadow: none; transform: none; }
+
+    .input-group { display: flex; gap: 8px; margin-bottom: 12px; }
+    input { flex: 1; padding: 10px 14px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.95rem; }
+    .btn { padding: 10px 16px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
+    .btn-full { width: 100%; margin-top: 10px; }
+
+    .mode-option { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 0.95rem; font-weight: bold; }
+    .mode-option input { flex: none; width: 18px; height: 18px; cursor: pointer; }
+
+    .score-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .score-table th, .score-table td { padding: 8px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+    .score-table th:last-child, .score-table td:last-child { text-align: right; }
+    .status { text-align: center; font-size: 0.9rem; color: #666; margin-top: 6px; }
+
+    .winner-box {
+      background: #fff3cd; border: 2px dashed #ffebaa; border-radius: 12px;
+      padding: 16px; text-align: center; margin-bottom: 12px; display: none;
+    }
+    .winner-title { font-size: 1.2rem; font-weight: bold; color: #856404; }
+    .winner-name { font-size: 1.5rem; font-weight: bold; color: #d39e00; margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Online Timer Game</h1>
+
+  <!-- Lobby Section -->
+  <div class="card" id="lobbySection">
+    <div class="input-group">
+      <input type="text" id="usernameInput" placeholder="ชื่อของคุณ" value="Player">
+    </div>
+    
+    <div class="mode-option">
+      <input type="checkbox" id="blindModeCheck">
+      <label for="blindModeCheck">เปิดใช้งาน Blind Mode (ซ่อนตัวเลขขณะจับเวลา)</label>
+    </div>
+
+    <div style="display: flex; gap: 8px;">
+      <button class="btn btn-primary" style="flex: 1;" id="btnCreateRoom">สร้างห้อง (Host)</button>
+    </div>
+    <div style="text-align: center; margin: 10px 0; font-size: 0.85rem; color: #888;">— หรือเข้าร่วมห้องเพื่อน —</div>
+    <div class="input-group">
+      <input type="text" id="roomCodeInput" placeholder="ใส่รหัสห้อง (Room Code)">
+      <button class="btn btn-outline" id="btnJoinRoom">เข้าร่วม</button>
+    </div>
+    <p class="status" id="lobbyStatus"></p>
+  </div>
+
+  <!-- Game Section -->
+  <div class="card" id="gameSection" style="display: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <span style="font-size: 0.85rem; color: #666;">รหัสห้อง: <b id="displayRoomCode" style="color: #000;">-</b></span>
+      <span style="font-size: 0.85rem; font-weight: bold; color: #007bff;" id="roundDisplay">รอบที่ 1/3</span>
+      <button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem;" id="btnCopyCode">คัดลอกรหัส</button>
+    </div>
+
+    <div class="winner-box" id="winnerBox">
+      <div class="winner-title">🏆 ผู้ชนะประจำเซ็ต 🏆</div>
+      <div class="winner-name" id="winnerName">-</div>
+      <div style="font-size: 0.85rem; color: #856404; margin-top: 4px;" id="winnerDetail"></div>
+    </div>
+
+    <div class="boards">
+      <div class="board">
+        <div class="board-label target">TARGET</div>
+        <div class="digital-clock val-target" id="targetDisplay">00:05.00</div>
+      </div>
+      <div class="board">
+        <div class="board-label time">YOUR TIME</div>
+        <div class="digital-clock val-time" id="timeDisplay">00:00.00</div>
+      </div>
+    </div>
+
+    <button class="btn-circle" id="actionBtn">START</button>
+    <p class="status" id="gameStatus">กด START แล้วกด STOP ให้ใกล้เคียงเป้าหมาย</p>
+
+    <button class="btn btn-primary btn-full" id="btnNextRound" style="display: none;">รอบถัดไป (เฉพาะ Host)</button>
+
+    <table class="score-table">
+      <thead>
+        <tr>
+          <th>ผู้เล่น</th>
+          <th>รอบ 1 / 2 / 3</th>
+          <th>รวมคลาดเคลื่อน</th>
+        </tr>
+      </thead>
+      <tbody id="scoreList"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  // Google STUN Configuration เพื่อให้ข้าม Firewall/NAT ได้เสถียรขึ้น
+  const peerConfig = {
+    config: {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    }
+  };
+
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  function playStartSound() {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.12);
+  }
+
+  function playStopSound() {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+  }
+
+  function playWinSound() {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const notes = [523.25, 659.25, 783.99, 1046.50];
+    notes.forEach((freq, idx) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const startTime = audioCtx.currentTime + (idx * 0.1);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0.2, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.25);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(startTime); osc.stop(startTime + 0.25);
+    });
+  }
+
+  let peer = null;
+  let conn = null;
+  let connections = [];
+  let isHost = false;
+  let myId = '';
+  let myName = 'Player';
+  
+  let targetTime = 5.00;
+  let startTime = 0;
+  let timerInterval = null;
+  let isRunning = false;
+  let isBlindMode = false;
+  let currentRound = 1;
+  const maxRounds = 3;
+
+  let playerResults = {};
+
+  const lobbySection = document.getElementById('lobbySection');
+  const gameSection = document.getElementById('gameSection');
+  const lobbyStatus = document.getElementById('lobbyStatus');
+  const displayRoomCode = document.getElementById('displayRoomCode');
+  const roundDisplay = document.getElementById('roundDisplay');
+  const targetDisplay = document.getElementById('targetDisplay');
+  const timeDisplay = document.getElementById('timeDisplay');
+  const actionBtn = document.getElementById('actionBtn');
+  const gameStatus = document.getElementById('gameStatus');
+  const btnNextRound = document.getElementById('btnNextRound');
+  const scoreList = document.getElementById('scoreList');
+  const winnerBox = document.getElementById('winnerBox');
+  const winnerName = document.getElementById('winnerName');
+  const winnerDetail = document.getElementById('winnerDetail');
+
+  function formatTime(sec) {
+    const s = Math.floor(sec % 60).toString().padStart(2, '0');
+    const ms = Math.floor((sec % 1) * 100).toString().padStart(2, '0');
+    return `00:${s}.${ms}`;
+  }
+
+  // --- Host Logic ---
+  document.getElementById('btnCreateRoom').addEventListener('click', () => {
+    myName = document.getElementById('usernameInput').value.trim() || 'Host';
+    isBlindMode = document.getElementById('blindModeCheck').checked;
+    lobbyStatus.style.color = '#666';
+    lobbyStatus.innerText = 'กำลังเชื่อมต่อ Server...';
+    
+    const code = 'tm-' + Math.random().toString(36).substring(2, 7);
+    if (peer) peer.destroy();
+    peer = new Peer(code, peerConfig);
+
+    peer.on('open', (id) => {
+      isHost = true;
+      myId = id;
+      switchToGameView(id);
+      btnNextRound.style.display = 'block';
+      initNewSet();
+    });
+
+    peer.on('connection', (c) => {
+      connections.push(c);
+      c.on('data', (data) => handleHostReceiveData(c, data));
+      c.on('close', () => {
+        connections = connections.filter(conn => conn !== c);
+      });
+    });
+
+    peer.on('error', (err) => {
+      lobbyStatus.style.color = '#e04826';
+      lobbyStatus.innerText = 'เกิดข้อผิดพลาด: ' + err.type;
+    });
+  });
+
+  // --- Guest Logic ---
+  document.getElementById('btnJoinRoom').addEventListener('click', () => {
+    const roomCode = document.getElementById('roomCodeInput').value.trim();
+    if (!roomCode) return alert('กรุณากรอกรหัสห้อง');
+    myName = document.getElementById('usernameInput').value.trim() || 'Guest';
+    
+    lobbyStatus.style.color = '#666';
+    lobbyStatus.innerText = 'กำลังเชื่อมต่อกับห้อง...';
+
+    if (peer) peer.destroy();
+    peer = new Peer(peerConfig);
+
+    let connectTimeout = setTimeout(() => {
+      lobbyStatus.style.color = '#e04826';
+      lobbyStatus.innerText = 'เชื่อมต่อล้มเหลว: ตรวจสอบรหัสห้อง หรือฝั่ง Host อาจปิดหน้าเว็บไปแล้ว';
+    }, 10000);
+
+    peer.on('open', (id) => {
+      myId = id;
+      conn = peer.connect(roomCode, { reliable: true });
+      
+      conn.on('open', () => {
+        clearTimeout(connectTimeout);
+        isHost = false;
+        switchToGameView(roomCode);
+        conn.send({ type: 'JOIN', name: myName });
+      });
+
+      conn.on('data', (data) => handleGuestReceiveData(data));
+      conn.on('close', () => alert('การเชื่อมต่อกับ Host ขาดหาย'));
+    });
+
+    peer.on('error', (err) => {
+      clearTimeout(connectTimeout);
+      lobbyStatus.style.color = '#e04826';
+      if (err.type === 'peer-unavailable') {
+        lobbyStatus.innerText = 'ไม่พบรหัสห้องนี้ (Host อาจยังไม่ได้สร้างห้อง หรือกรอกรหัสผิด)';
+      } else {
+        lobbyStatus.innerText = 'ข้อผิดพลาดเครือข่าย: ' + err.type;
+      }
+    });
+  });
+
+  function switchToGameView(roomCode) {
+    lobbySection.style.display = 'none';
+    gameSection.style.display = 'block';
+    displayRoomCode.innerText = roomCode;
+  }
+
+  function initNewSet() {
+    currentRound = 1;
+    winnerBox.style.display = 'none';
+    for (let id in playerResults) {
+      playerResults[id].scores = [];
+      playerResults[id].totalDiff = null;
+    }
+    if (isHost && !playerResults[myId]) {
+      addPlayer(myId, myName);
+    }
+    generateNewTarget();
+  }
+
+  function generateNewTarget() {
+    targetTime = (Math.floor(Math.random() * 600) + 300) / 100;
+    targetDisplay.innerText = formatTime(targetTime);
+    
+    connections.forEach(c => {
+      if (c.open) c.send({ 
+        type: 'NEW_ROUND', 
+        target: targetTime, 
+        round: currentRound, 
+        isBlind: isBlindMode 
+      });
+    });
+    
+    resetRoundUI();
+  }
+
+  function addPlayer(id, name) {
+    playerResults[id] = { name, scores: [], totalDiff: null };
+  }
+
+  function submitScore(id, diff) {
+    if (!playerResults[id]) return;
+    playerResults[id].scores[currentRound - 1] = diff;
+    if (playerResults[id].scores.length === maxRounds) {
+      const sum = playerResults[id].scores.reduce((a, b) => a + (b || 0), 0);
+      playerResults[id].totalDiff = sum;
+    }
+  }
+
+  function checkAndAnnounceWinner() {
+    const players = Object.values(playerResults);
+    const allFinished = players.length > 0 && players.every(p => p.scores.length === maxRounds);
+
+    if (allFinished) {
+      const sorted = [...players].sort((a, b) => a.totalDiff - b.totalDiff);
+      const winner = sorted[0];
+      
+      if (winnerBox.style.display !== 'block') {
+        playWinSound();
+      }
+
+      winnerName.innerText = winner.name;
+      winnerDetail.innerText = `รวมคลาดเคลื่อนน้อยที่สุด: ±${winner.totalDiff.toFixed(2)} วินาที`;
+      winnerBox.style.display = 'block';
+    }
+  }
+
+  function handleHostReceiveData(senderConn, data) {
+    if (data.type === 'JOIN') {
+      addPlayer(senderConn.peer, data.name);
+      senderConn.send({ 
+        type: 'SYNC_STATE', 
+        target: targetTime, 
+        results: playerResults, 
+        round: currentRound,
+        isBlind: isBlindMode
+      });
+      broadcastState();
+    } else if (data.type === 'SUBMIT_SCORE') {
+      submitScore(senderConn.peer, data.diff);
+      checkAndAnnounceWinner();
+      broadcastState();
+    }
+  }
+
+  function handleGuestReceiveData(data) {
+    if (data.type === 'SYNC_STATE' || data.type === 'NEW_ROUND') {
+      targetTime = data.target;
+      targetDisplay.innerText = formatTime(targetTime);
+      currentRound = data.round;
+      isBlindMode = data.isBlind;
+      
+      if (data.results) playerResults = data.results;
+      
+      roundDisplay.innerText = `รอบที่ ${currentRound}/${maxRounds}`;
+      resetRoundUI();
+      renderScoreboard();
+      checkAndAnnounceWinner();
+    }
+  }
+
+  function broadcastState() {
+    connections.forEach(c => {
+      if (c.open) c.send({ 
+        type: 'SYNC_STATE', 
+        target: targetTime, 
+        results: playerResults, 
+        round: currentRound,
+        isBlind: isBlindMode
+      });
+    });
+    renderScoreboard();
+  }
+
+  function renderScoreboard() {
+    scoreList.innerHTML = '';
+    const sorted = Object.values(playerResults).sort((a, b) => {
+      if (a.totalDiff === null && b.totalDiff === null) return 0;
+      if (a.totalDiff === null) return 1;
+      if (b.totalDiff === null) return -1;
+      return a.totalDiff - b.totalDiff;
+    });
+
+    sorted.forEach(p => {
+      const row = document.createElement('tr');
+      let scoresTxt = [];
+      for(let i=0; i<maxRounds; i++) {
+        if(p.scores[i] !== undefined && p.scores[i] !== null) {
+          scoresTxt.push(`±${p.scores[i].toFixed(2)}s`);
+        } else {
+          scoresTxt.push('-');
+        }
+      }
+      const totalTxt = p.totalDiff !== null ? `±${p.totalDiff.toFixed(2)}s` : '-';
+      row.innerHTML = `<td>${p.name}</td><td>${scoresTxt.join(' / ')}</td><td>${totalTxt}</td>`;
+      scoreList.appendChild(row);
+    });
+  }
+
+  function resetRoundUI() {
+    timeDisplay.innerText = "00:00.00";
+    actionBtn.disabled = false;
+    actionBtn.classList.remove('stop');
+    actionBtn.innerText = 'START';
+    gameStatus.innerText = isBlindMode ? '🔒 Blind Mode: เวลาจะถูกซ่อน!' : 'กะเวลาให้ตรงเป้า แล้วกด STOP!';
+    roundDisplay.innerText = `รอบที่ ${currentRound}/${maxRounds}`;
+
+    if (currentRound > maxRounds) {
+      actionBtn.disabled = true;
+      gameStatus.innerText = 'จบเซ็ตแล้ว! รอ Host เริ่มเซ็ตใหม่';
+    }
+
+    if (isHost) {
+      btnNextRound.innerText = currentRound >= maxRounds ? 'เริ่มเซ็ตใหม่ (เฉพาะ Host)' : 'รอบถัดไป (เฉพาะ Host)';
+    }
+  }
+
+  actionBtn.addEventListener('click', () => {
+    if (!isRunning) {
+      playStartSound();
+      isRunning = true;
+      startTime = performance.now();
+      actionBtn.classList.add('stop');
+      actionBtn.innerText = 'STOP';
+
+      timerInterval = setInterval(() => {
+        const elapsed = (performance.now() - startTime) / 1000;
+        if (isBlindMode) {
+          timeDisplay.innerText = "??:??.??";
+        } else {
+          timeDisplay.innerText = formatTime(elapsed);
+        }
+      }, 10);
+    } else {
+      playStopSound();
+      isRunning = false;
+      clearInterval(timerInterval);
+      const finalTime = (performance.now() - startTime) / 1000;
+      timeDisplay.innerText = formatTime(finalTime);
+      actionBtn.disabled = true;
+      actionBtn.classList.remove('stop');
+      actionBtn.innerText = 'DONE';
+
+      const diff = Math.abs(finalTime - targetTime);
+      gameStatus.innerText = `หยุดเวลาแล้ว! คลาดเคลื่อน: ±${diff.toFixed(2)} วินาที`;
+
+      if (isHost) {
+        submitScore(myId, diff);
+        checkAndAnnounceWinner();
+        broadcastState();
+      } else {
+        conn.send({ type: 'SUBMIT_SCORE', diff: diff });
+      }
+    }
+  });
+
+  btnNextRound.addEventListener('click', () => {
+    if (currentRound >= maxRounds) {
+      initNewSet();
+    } else {
+      currentRound++;
+      generateNewTarget();
+    }
+  });
+
+  document.getElementById('btnCopyCode').addEventListener('click', () => {
+    navigator.clipboard.writeText(displayRoomCode.innerText);
+    alert('คัดลอกรหัสห้องแล้ว');
+  });
+</script>
+</body>
+</html>
