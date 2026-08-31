@@ -3,22 +3,35 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Online Timer, Reflex & Party Game</title>
+  <title>Online Party Timer - Esports Edition</title>
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <style>
     :root {
-      --bg-color: #f0f7f6;
-      --card-bg: #ffffff;
-      --primary: #28a745;
-      --danger: #e04826;
-      --warning: #ff9800;
-      --purple: #8e44ad;
-      --text: #2c3e50;
+      --bg-main: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --primary: #10b981;
+      --primary-hover: #059669;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --purple: #8b5cf6;
+      --blue: #3b82f6;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
     }
+
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: var(--bg-color); color: var(--text); display: flex; justify-content: center; padding: 20px; }
     
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+    }
+
     @keyframes shake {
       0% { transform: translate(1px, 1px) rotate(0deg); }
       20% { transform: translate(-3px, 0px) rotate(2deg); }
@@ -29,93 +42,249 @@
     }
     .shake-screen { animation: shake 0.4s ease-in-out; }
 
-    .container { width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: 16px; }
-    .card { background: var(--card-bg); border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
-    h1 { text-align: center; font-size: 1.5rem; margin-bottom: 8px; }
+    /* Main Container */
+    .app-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .app-title {
+      font-size: 2rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #10b981, #3b82f6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 1px;
+    }
 
-    .pb-badge { background: #fff3cd; border: 1px solid #ffeba0; border-radius: 8px; padding: 6px 12px; font-size: 0.8rem; text-align: center; margin-bottom: 8px; color: #856404; font-weight: bold; }
+    .pb-badge {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 30px;
+      padding: 8px 16px;
+      font-size: 0.85rem;
+      color: #fbbf24;
+      font-weight: 600;
+      display: inline-block;
+      margin-top: 8px;
+    }
 
-    .boards { display: flex; gap: 12px; margin-top: 10px; }
-    .board { flex: 1; background: #111; color: #fff; border-radius: 12px; padding: 14px; text-align: center; }
-    .board-label { font-size: 0.75rem; font-weight: bold; margin-bottom: 4px; letter-spacing: 1px; }
-    .board-label.target { color: #ff6b6b; }
-    .board-label.time { color: #51cf66; }
-    .digital-clock { font-family: monospace; font-size: 1.4rem; font-weight: bold; }
-    .val-target { color: #ff6b6b; }
-    .val-time { color: #51cf66; }
+    /* Layout structure */
+    .app-wrapper {
+      width: 100%;
+      max-width: 1280px;
+      margin: 0 auto;
+      flex: 1;
+    }
+
+    .lobby-container {
+      max-width: 520px;
+      margin: 40px auto;
+    }
+
+    .game-grid {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 960px) {
+      .game-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Cards & Components */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .boards { display: flex; gap: 16px; margin-top: 16px; }
+    .board {
+      flex: 1;
+      background: #090d16;
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      padding: 16px;
+      text-align: center;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+    }
+    .board-label { font-size: 0.75rem; font-weight: 800; margin-bottom: 6px; letter-spacing: 1.5px; }
+    .board-label.target { color: #f87171; }
+    .board-label.time { color: #34d399; }
+    
+    .digital-clock {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+    }
+    .val-target { color: #f87171; text-shadow: 0 0 10px rgba(248, 113, 113, 0.3); }
+    .val-time { color: #34d399; text-shadow: 0 0 10px rgba(52, 211, 153, 0.3); }
 
     .turn-banner {
-      background: #e3f2fd; border: 1px solid #90caf9; color: #0c5460;
-      padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 0.95rem; margin-top: 10px;
+      background: #1e293b;
+      border: 1px solid var(--blue);
+      color: #60a5fa;
+      padding: 12px;
+      border-radius: 10px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 1rem;
     }
     .turn-banner.sudden-death {
-      background: #ffebee; border: 2px dashed #f44336; color: #c62828; animation: pulse 0.5s infinite alternate;
+      background: rgba(239, 68, 68, 0.15);
+      border: 2px dashed var(--danger);
+      color: #f87171;
+      animation: pulse 0.6s infinite alternate;
+    }
+
+    /* Big Action Button */
+    .action-arena {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 28px 0;
     }
 
     .btn-circle {
-      width: 140px; height: 140px; border-radius: 50%; border: none;
-      background: radial-gradient(circle at 30% 30%, #51cf66, #28a745);
-      color: white; font-weight: bold; font-size: 1.2rem; cursor: pointer;
-      box-shadow: 0 8px 20px rgba(40, 167, 69, 0.3); margin: 16px auto;
-      display: flex; justify-content: center; align-items: center; text-align: center;
-      transition: transform 0.15s ease, background 0.2s ease;
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      border: none;
+      background: radial-gradient(circle at 30% 30%, #34d399, #059669);
+      color: white;
+      font-weight: 900;
+      font-size: 1.5rem;
+      cursor: pointer;
+      box-shadow: 0 0 30px rgba(16, 185, 129, 0.4), inset 0 4px 6px rgba(255,255,255,0.3);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      transition: transform 0.1s ease, box-shadow 0.2s ease, background 0.2s ease;
+      user-select: none;
     }
-    .btn-circle:active { transform: scale(0.95); }
+    .btn-circle:active, .btn-circle.space-active { transform: scale(0.92); }
     
-    .btn-circle.stop-red { background: radial-gradient(circle at 30% 30%, #ff6b6b, var(--danger)); box-shadow: 0 8px 20px rgba(224, 72, 38, 0.4); }
-    .btn-circle.stop-purple { background: radial-gradient(circle at 30% 30%, #ba68c8, var(--purple)); box-shadow: 0 8px 20px rgba(142, 68, 173, 0.4); }
+    .btn-circle.stop-red {
+      background: radial-gradient(circle at 30% 30%, #f87171, #dc2626);
+      box-shadow: 0 0 30px rgba(239, 68, 68, 0.5), inset 0 4px 6px rgba(255,255,255,0.3);
+    }
+    .btn-circle.stop-purple {
+      background: radial-gradient(circle at 30% 30%, #c084fc, #7c3aed);
+      box-shadow: 0 0 30px rgba(139, 92, 246, 0.5), inset 0 4px 6px rgba(255,255,255,0.3);
+    }
     
-    .btn-circle.light-red { background: radial-gradient(circle at 30% 30%, #ff5252, #d32f2f); box-shadow: 0 0 25px rgba(211, 47, 47, 0.8); }
-    .btn-circle.light-yellow { background: radial-gradient(circle at 30% 30%, #ffd740, #f57f17); box-shadow: 0 0 25px rgba(245, 127, 23, 0.8); }
-    .btn-circle.light-green { background: radial-gradient(circle at 30% 30%, #69f0ae, #00c853); box-shadow: 0 0 30px rgba(0, 200, 83, 0.9); animation: pulse 0.2s infinite alternate; }
+    .btn-circle.light-red { background: radial-gradient(circle at 30% 30%, #ef4444, #991b1b); box-shadow: 0 0 35px rgba(239, 68, 68, 0.8); }
+    .btn-circle.light-yellow { background: radial-gradient(circle at 30% 30%, #fbbf24, #d97706); box-shadow: 0 0 35px rgba(245, 158, 11, 0.8); }
+    .btn-circle.light-green { background: radial-gradient(circle at 30% 30%, #34d399, #059669); box-shadow: 0 0 45px rgba(52, 211, 153, 0.9); animation: pulse 0.2s infinite alternate; }
     
     @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.05); } }
-    .btn-circle:disabled { background: #bbb !important; cursor: not-allowed; box-shadow: none; transform: none; animation: none; }
+    .btn-circle:disabled { background: #334155 !important; color: #64748b !important; cursor: not-allowed; box-shadow: none; transform: none; animation: none; }
 
-    .bet-box { background: #f8f9fa; border: 1px dashed #ced4da; border-radius: 8px; padding: 8px 12px; margin-top: 10px; text-align: center; font-size: 0.85rem; }
-    .debuff-panel { background: #f3e5f5; border: 1px solid #ce93d8; border-radius: 8px; padding: 10px; margin-top: 10px; display: none; }
-    .debuff-title { font-size: 0.85rem; font-weight: bold; color: var(--purple); margin-bottom: 6px; text-align: center; }
+    .space-hint {
+      margin-top: 12px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      background: rgba(255,255,255,0.05);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
 
+    .bet-box {
+      background: rgba(245, 158, 11, 0.05);
+      border: 1px dashed rgba(245, 158, 11, 0.3);
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-top: 14px;
+      text-align: center;
+      font-size: 0.85rem;
+    }
+
+    .debuff-panel {
+      background: rgba(139, 92, 246, 0.1);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 14px;
+      display: none;
+    }
+    .debuff-title { font-size: 0.85rem; font-weight: bold; color: #a78bfa; margin-bottom: 8px; text-align: center; }
+
+    /* Inputs & Buttons */
     .input-group { display: flex; gap: 8px; margin-bottom: 12px; }
-    input, select { flex: 1; padding: 10px 14px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.95rem; }
-    .btn { padding: 10px 16px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    input, select {
+      flex: 1;
+      padding: 10px 14px;
+      background: #0f172a;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      color: var(--text-main);
+    }
+    input:focus, select:focus { outline: none; border-color: var(--blue); }
+
+    .btn { padding: 10px 16px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
     .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
     .btn-purple { background: var(--purple); color: #fff; }
-    .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
+    .btn-outline { background: transparent; border: 1px solid var(--card-border); color: var(--text-main); }
+    .btn-outline:hover { background: rgba(255,255,255,0.05); }
     .btn-danger-sm { background: var(--danger); color: #fff; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; border: none; cursor: pointer; }
     .btn-full { width: 100%; margin-top: 10px; }
 
     .mode-select-box { margin-bottom: 12px; }
-    .mode-select-box label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; color: #555; }
+    .mode-select-box label { display: block; font-size: 0.8rem; font-weight: bold; margin-bottom: 6px; color: var(--text-muted); }
 
+    /* Scoreboard Table */
     .score-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    .score-table th, .score-table td { padding: 8px 4px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.8rem; }
+    .score-table th { padding: 10px 6px; text-align: left; border-bottom: 1px solid var(--card-border); font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; }
+    .score-table td { padding: 10px 6px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.85rem; }
     .score-table th:last-child, .score-table td:last-child { text-align: right; }
-    .status { text-align: center; font-size: 0.9rem; color: #666; margin-top: 6px; }
+    .status { text-align: center; font-size: 0.85rem; color: var(--text-muted); margin-top: 8px; }
 
-    .announce-box { border-radius: 12px; padding: 14px; text-align: center; margin-bottom: 12px; display: none; }
-    .round-winner-box { background: #e8f5e9; border: 2px dashed #81c784; color: #1b5e20; }
-    .match-winner-box { background: #fff3cd; border: 2px dashed #ffebaa; color: #856404; }
-    .announce-title { font-size: 1.1rem; font-weight: bold; }
-    .announce-name { font-size: 1.4rem; font-weight: bold; margin-top: 2px; }
+    /* Winner Announcements */
+    .announce-box { border-radius: 12px; padding: 14px; text-align: center; margin-bottom: 16px; display: none; }
+    .round-winner-box { background: rgba(16, 185, 129, 0.1); border: 1px dashed var(--primary); color: #34d399; }
+    .match-winner-box { background: rgba(245, 158, 11, 0.15); border: 2px dashed var(--warning); color: #fbbf24; }
+    .announce-title { font-size: 0.9rem; font-weight: bold; }
+    .announce-name { font-size: 1.3rem; font-weight: 800; margin-top: 2px; }
   </style>
 </head>
 <body>
 
-<div class="container">
-  <h1>Online Party Timer</h1>
-
-  <!-- Personal Best Banner -->
+<div class="app-header">
+  <h1 class="app-title">ONLINE PARTY TIMER</h1>
   <div class="pb-badge" id="pbDisplay">⭐ สถิติสูงสุดส่วนตัว (PB): ความแม่นยำ - % | ปฏิกิริยา - ms</div>
+</div>
 
+<div class="app-wrapper">
   <!-- Lobby Section -->
-  <div class="card" id="lobbySection">
+  <div class="card lobby-container" id="lobbySection">
+    <div class="card-title">🎮 เข้าสู่ห้องแข่งขัน</div>
     <div class="input-group">
       <input type="text" id="usernameInput" placeholder="ชื่อของคุณ" value="Player">
     </div>
 
     <div class="mode-select-box">
-      <label for="gameModeSelect">โหมดการแข่งขัน:</label>
+      <label for="gameModeSelect">เลือกโหมดการแข่งขัน:</label>
       <select id="gameModeSelect">
         <option value="standard">🎯 โหมดปกติ (Standard Target)</option>
         <option value="simultaneous">🏎️ Simultaneous Race (ทุกคนแข่งพร้อมกัน)</option>
@@ -130,7 +299,7 @@
     <div style="display: flex; gap: 8px;">
       <button class="btn btn-primary" style="flex: 1;" id="btnCreateRoom">สร้างห้อง (Host)</button>
     </div>
-    <div style="text-align: center; margin: 10px 0; font-size: 0.85rem; color: #888;">— หรือเข้าร่วมห้องเพื่อน —</div>
+    <div style="text-align: center; margin: 12px 0; font-size: 0.8rem; color: var(--text-muted);">— หรือเข้าร่วมห้องเพื่อน —</div>
     <div class="input-group">
       <input type="text" id="roomCodeInput" placeholder="ใส่รหัสห้อง (Room Code)">
       <button class="btn btn-outline" id="btnJoinRoom">เข้าร่วม</button>
@@ -138,122 +307,140 @@
     <p class="status" id="lobbyStatus"></p>
   </div>
 
-  <!-- Game Section -->
-  <div class="card" id="gameSection" style="display: none;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-      <span style="font-size: 0.8rem; color: #666;">ห้อง: <b id="displayRoomCode" style="color: #000;">-</b></span>
-      <span style="font-size: 0.8rem; font-weight: bold; color: #17a2b8;" id="modeDisplay">โหมด: ปกติ</span>
-      <span style="font-size: 0.8rem; font-weight: bold; color: #007bff;" id="roundDisplay">รอบที่ 1/3</span>
-      <button class="btn btn-outline" style="padding: 2px 6px; font-size: 0.7rem;" id="btnCopyCode">ก๊อปปี้รหัส</button>
-    </div>
+  <!-- Main Game Section (2-Column Grid) -->
+  <div class="game-grid" id="gameSection" style="display: none;">
+    
+    <!-- Left Column: Arena Workspace -->
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--card-border);">
+          <span style="font-size: 0.85rem; color: var(--text-muted);">ห้อง: <b id="displayRoomCode" style="color: var(--text-main);">-</b> <button class="btn btn-outline" style="padding: 2px 6px; font-size: 0.7rem; margin-left: 4px;" id="btnCopyCode">ก๊อปปี้</button></span>
+          <span style="font-size: 0.85rem; font-weight: bold; color: var(--purple);" id="modeDisplay">โหมด: ปกติ</span>
+          <span style="font-size: 0.85rem; font-weight: bold; color: var(--blue);" id="roundDisplay">รอบที่ 1/3</span>
+        </div>
 
-    <!-- Announcements -->
-    <div class="announce-box round-winner-box" id="roundWinnerBox">
-      <div class="announce-title">🥇 ผู้ชนะรอบนี้</div>
-      <div class="announce-name" id="roundWinnerName">-</div>
-      <div style="font-size: 0.85rem; margin-top: 2px;" id="roundWinnerDetail"></div>
-    </div>
+        <div class="turn-banner" id="turnBanner">กำลังรอการเริ่มต้น...</div>
 
-    <div class="announce-box match-winner-box" id="matchWinnerBox">
-      <div class="announce-title">🏆 แชมป์ประจำการแข่งขัน 🏆</div>
-      <div class="announce-name" id="matchWinnerName">-</div>
-      <div style="font-size: 0.85rem; margin-top: 2px;" id="matchWinnerDetail"></div>
-    </div>
+        <div class="boards">
+          <div class="board">
+            <div class="board-label target">TARGET</div>
+            <div class="digital-clock val-target" id="targetDisplay">00:05.00</div>
+          </div>
+          <div class="board">
+            <div class="board-label time">YOUR TIME</div>
+            <div class="digital-clock val-time" id="timeDisplay">00:00.00</div>
+          </div>
+        </div>
 
-    <div class="turn-banner" id="turnBanner">กำลังรอการเริ่มต้น...</div>
+        <!-- Action Button Arena -->
+        <div class="action-arena">
+          <button class="btn-circle" id="actionBtn" disabled>START</button>
+          <div class="space-hint">💡 สามารถกดปุ่ม [ SPACEBAR ] แทนการคลิกได้</div>
+          <p class="status" id="gameStatus" style="margin-top: 10px;">รอเริ่มการแข่งขัน</p>
+        </div>
 
-    <div class="boards">
-      <div class="board">
-        <div class="board-label target">TARGET</div>
-        <div class="digital-clock val-target" id="targetDisplay">00:05.00</div>
+        <!-- Blind Bet Box -->
+        <div class="bet-box">
+          <label style="cursor: pointer; font-weight: bold; color: #fbbf24;">
+            <input type="checkbox" id="betCheckbox"> 🎲 Blind Bet 98.5% (ชนะรับคะแนน x2 / หลุดเป้าได้ 0%)
+          </label>
+        </div>
+
+        <!-- Debuff Panel -->
+        <div class="debuff-panel" id="debuffPanel">
+          <div class="debuff-title">🃏 คุณได้รับสิทธิ์การ์ดก่อกวน! (ใช้ได้ 1 ครั้ง)</div>
+          <div style="display: flex; gap: 8px;">
+            <select id="debuffTargetSelect" style="padding: 6px; font-size: 0.8rem;"></select>
+            <button class="btn btn-purple" style="padding: 6px 12px; font-size: 0.8rem; white-space: nowrap;" id="btnSendDebuffNoise">🔊 ส่งเสียงรบกวน</button>
+          </div>
+        </div>
+
+        <!-- Host Control Panel -->
+        <div id="hostControls" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--card-border);">
+          <div class="mode-select-box">
+            <label for="hostModeSelect">เปลี่ยนโหมดสำหรับเกมถัดไป (เฉพาะ Host):</label>
+            <select id="hostModeSelect">
+              <option value="standard">🎯 โหมดปกติ (Standard Target)</option>
+              <option value="simultaneous">🏎️ Simultaneous Race (ทุกคนแข่งพร้อมกัน)</option>
+              <option value="bomb">💣 Count Down Bomb (กดให้ใกล้ 0 ห้ามระเบิด)</option>
+              <option value="reflex">🚦 โหมดวัดประสาทสัมผัส (Reflex Test)</option>
+              <option value="dual_target">🎯🎯 โหมดสองเป้าหมาย (Dual Target)</option>
+              <option value="blind">🔒 Blind Mode (เปิดเวลาแค่ 2 วินาทีแรก)</option>
+              <option value="fast_draw">⚡ โหมดสายฟ้าแปดวิ (เป้าหมายสั้น)</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-full" id="btnNextRound">รอบถัดไป / เริ่มการแข่งขันใหม่</button>
+        </div>
+
       </div>
-      <div class="board">
-        <div class="board-label time">YOUR TIME</div>
-        <div class="digital-clock val-time" id="timeDisplay">00:00.00</div>
+    </div>
+
+    <!-- Right Column: Scoreboard Sidebar -->
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      
+      <!-- Winner Announcements -->
+      <div class="announce-box round-winner-box" id="roundWinnerBox">
+        <div class="announce-title">🥇 ผู้ชนะรอบนี้</div>
+        <div class="announce-name" id="roundWinnerName">-</div>
+        <div style="font-size: 0.8rem; margin-top: 4px;" id="roundWinnerDetail"></div>
+      </div>
+
+      <div class="announce-box match-winner-box" id="matchWinnerBox">
+        <div class="announce-title">🏆 แชมป์ประจำการแข่งขัน 🏆</div>
+        <div class="announce-name" id="matchWinnerName">-</div>
+        <div style="font-size: 0.8rem; margin-top: 4px;" id="matchWinnerDetail"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📊 ตารางคะแนน (Scoreboard)</div>
+        <table class="score-table">
+          <thead>
+            <tr>
+              <th>ผู้เล่น</th>
+              <th id="thRoundHeader">รอบ 1 / 2 / 3</th>
+              <th>เฉลี่ย</th>
+              <th id="thManage" style="display:none;">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="scoreList"></tbody>
+        </table>
       </div>
     </div>
 
-    <!-- Blind Bet Box -->
-    <div class="bet-box">
-      <label style="cursor: pointer; font-weight: bold; color: #d97706;">
-        <input type="checkbox" id="betCheckbox"> 🎲 Blind Bet 98.5% (ชนะรับคะแนน x2 / หลุดเป้าได้ 0%)
-      </label>
-    </div>
-
-    <!-- Debuff Card Panel -->
-    <div class="debuff-panel" id="debuffPanel">
-      <div class="debuff-title">🃏 คุณได้รับสิทธิ์การ์ดก่อกวน! (ใช้ได้ 1 ครั้ง)</div>
-      <div style="display: flex; gap: 6px;">
-        <select id="debuffTargetSelect" style="padding: 4px; font-size: 0.8rem;"></select>
-        <button class="btn btn-purple" style="padding: 4px 8px; font-size: 0.8rem; width: 100%;" id="btnSendDebuffNoise">🔊 ส่งเสียงรบกวน</button>
-      </div>
-    </div>
-
-    <button class="btn-circle" id="actionBtn" disabled>START</button>
-    <p class="status" id="gameStatus">รอเริ่มการแข่งขัน</p>
-
-    <!-- Host Control Panel -->
-    <div id="hostControls" style="display: none; margin-top: 10px;">
-      <div class="mode-select-box">
-        <label for="hostModeSelect">เปลี่ยนโหมดสำหรับเกมถัดไป (เฉพาะ Host):</label>
-        <select id="hostModeSelect">
-          <option value="standard">🎯 โหมดปกติ (Standard Target)</option>
-          <option value="simultaneous">🏎️ Simultaneous Race (ทุกคนแข่งพร้อมกัน)</option>
-          <option value="bomb">💣 Count Down Bomb (กดให้ใกล้ 0 ห้ามระเบิด)</option>
-          <option value="reflex">🚦 โหมดวัดประสาทสัมผัส (Reflex Test)</option>
-          <option value="dual_target">🎯🎯 โหมดสองเป้าหมาย (Dual Target)</option>
-          <option value="blind">🔒 Blind Mode (เปิดเวลาแค่ 2 วินาทีแรก)</option>
-          <option value="fast_draw">⚡ โหมดสายฟ้าแปดวิ (เป้าหมายสั้น)</option>
-        </select>
-      </div>
-      <button class="btn btn-primary btn-full" id="btnNextRound">รอบถัดไป / เริ่มการแข่งขันใหม่</button>
-    </div>
-
-    <table class="score-table">
-      <thead>
-        <tr>
-          <th>ผู้เล่น</th>
-          <th id="thRoundHeader">รอบ 1 / 2 / 3</th>
-          <th>แม่นยำเฉลี่ย</th>
-          <th id="thManage" style="display:none;">จัดการ</th>
-        </tr>
-      </thead>
-      <tbody id="scoreList"></tbody>
-    </table>
   </div>
 </div>
 
 <script>
   const peerConfig = {
-  debug: 2,
-  config: {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun.relay.metered.ca:80' },
-      {
-        urls: 'turn:global.relay.metered.ca:80',
-        username: 'a580b2b8b51b7a88f3be1c1b',
-        credential: 'nwlD2ylncsb/Omm5'
-      },
-      {
-        urls: 'turn:global.relay.metered.ca:443',
-        username: 'a580b2b8b51b7a88f3be1c1b',
-        credential: 'nwlD2ylncsb/Omm5'
-      },
-      {
-        urls: 'turn:global.relay.metered.ca:443?transport=tcp',
-        username: 'a580b2b8b51b7a88f3be1c1b',
-        credential: 'nwlD2ylncsb/Omm5'
-      },
-      {
-        urls: 'turns:global.relay.metered.ca:443?transport=tcp',
-        username: 'a580b2b8b51b7a88f3be1c1b',
-        credential: 'nwlD2ylncsb/Omm5'
-      }
-    ]
-  }
-};
+    debug: 2,
+    config: {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun.relay.metered.ca:80' },
+        {
+          urls: 'turn:global.relay.metered.ca:80',
+          username: 'a580b2b8b51b7a88f3be1c1b',
+          credential: 'nwlD2ylncsb/Omm5'
+        },
+        {
+          urls: 'turn:global.relay.metered.ca:443',
+          username: 'a580b2b8b51b7a88f3be1c1b',
+          credential: 'nwlD2ylncsb/Omm5'
+        },
+        {
+          urls: 'turn:global.relay.metered.ca:443?transport=tcp',
+          username: 'a580b2b8b51b7a88f3be1c1b',
+          credential: 'nwlD2ylncsb/Omm5'
+        },
+        {
+          urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+          username: 'a580b2b8b51b7a88f3be1c1b',
+          credential: 'nwlD2ylncsb/Omm5'
+        }
+      ]
+    }
+  };
 
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   function playSound(freq, duration, type='sine') {
@@ -438,7 +625,7 @@
         removePlayer(c.peer);
       });
     });
-    peer.on('error', (err) => { lobbyStatus.style.color = '#e04826'; lobbyStatus.innerText = 'ข้อผิดพลาด: ' + err.type; });
+    peer.on('error', (err) => { lobbyStatus.style.color = '#ef4444'; lobbyStatus.innerText = 'ข้อผิดพลาด: ' + err.type; });
   }
 
   document.getElementById('btnJoinRoom').addEventListener('click', () => {
@@ -450,9 +637,8 @@
     if (peer) peer.destroy();
     peer = new Peer(peerConfig);
 
-    // ขยายเวลาเป็น 25000 ms (25 วินาที)
     let connectTimeout = setTimeout(() => {
-      lobbyStatus.style.color = '#e04826'; 
+      lobbyStatus.style.color = '#ef4444'; 
       lobbyStatus.innerText = 'เชื่อมต่อล้มเหลว: ลองให้เพื่อนเปิดแอป 1.1.1.1 (WARP) แล้วลองใหม่';
     }, 25000);
 
@@ -463,7 +649,7 @@
 
     peer.on('error', (err) => {
       clearTimeout(connectTimeout);
-      lobbyStatus.style.color = '#e04826'; lobbyStatus.innerText = 'ข้อผิดพลาด: ' + err.type;
+      lobbyStatus.style.color = '#ef4444'; lobbyStatus.innerText = 'ข้อผิดพลาด: ' + err.type;
     });
   });
 
@@ -500,7 +686,7 @@
 
   function switchToGameView(roomCode) {
     lobbySection.style.display = 'none';
-    gameSection.style.display = 'block';
+    gameSection.style.display = 'grid';
     displayRoomCode.innerText = roomCode;
   }
 
@@ -617,7 +803,6 @@
     const roundWinInfo = { round: currentRound, name: winnerName, acc: maxAcc, time: winnerTime };
     roundWinners[currentRound - 1] = roundWinInfo;
 
-    // Calculate Averages so far
     turnOrder.forEach(id => {
       const validScores = playerResults[id].scores.filter(s => s !== null && s !== undefined);
       if (validScores.length > 0) {
@@ -629,7 +814,6 @@
     let matchWinInfo = null;
 
     if (currentRound >= maxRounds) {
-      // Check for Tie for 1st place (Sudden Death)
       let maxAvg = -1;
       turnOrder.forEach(id => {
         if (playerResults[id].avgAcc > maxAvg) maxAvg = playerResults[id].avgAcc;
@@ -638,7 +822,6 @@
       let topPlayers = turnOrder.filter(id => playerResults[id].avgAcc === maxAvg);
 
       if (topPlayers.length > 1) {
-        // Trigger Sudden Death!
         isSuddenDeath = true;
         maxRounds++;
       } else if (topPlayers.length === 1) {
@@ -689,7 +872,6 @@
     updateUI(payload.roundWinner, payload.matchWinner);
   }
 
-  // Apply Debuff Effect (NO NOTICE / SILENT TRAP)
   function applyDebuffEffect(type) {
     activeDebuff = type;
   }
@@ -701,7 +883,7 @@
 
     if (gameMode === 'reflex') targetDisplay.innerText = "00:00.00 (🟢)";
     else if (gameMode === 'bomb') targetDisplay.innerText = `${formatTime(targetTime.t1)} (💣)`;
-    else if (targetTime.t2) targetDisplay.innerHTML = `<span style="font-size:0.9rem;">T1: <b>${formatTime(targetTime.t1)}</b><br>T2: <b>${formatTime(targetTime.t2)}</b></span>`;
+    else if (targetTime.t2) targetDisplay.innerHTML = `<span style="font-size:1.1rem;">T1: <b>${formatTime(targetTime.t1)}</b><br>T2: <b>${formatTime(targetTime.t2)}</b></span>`;
     else targetDisplay.innerText = formatTime(targetTime.t1);
 
     modeDisplay.innerText = `โหมด: ${getModeLabel(gameMode)}`;
@@ -721,7 +903,7 @@
         turnBanner.innerText = `⚡ เสมอกัน! เริ่ม Sudden Death ดวลจุดโทษหาผู้ชนะ!`;
       } else {
         turnBanner.className = 'turn-banner';
-        turnBanner.style.background = '#e8f5e9'; turnBanner.style.color = '#1b5e20';
+        turnBanner.style.background = 'rgba(16, 185, 129, 0.1)'; turnBanner.style.color = '#34d399'; turnBanner.style.borderColor = '#10b981';
         turnBanner.innerText = `🎉 จบรอบที่ ${currentRound} แล้ว!`;
       }
       actionBtn.disabled = true;
@@ -729,16 +911,16 @@
     } else {
       turnBanner.className = 'turn-banner' + (isSuddenDeath ? ' sudden-death' : '');
       if (gameMode === 'simultaneous') {
-        if (!isSuddenDeath) { turnBanner.style.background = '#e0f7fa'; turnBanner.style.color = '#006064'; }
+        if (!isSuddenDeath) { turnBanner.style.background = 'rgba(59, 130, 246, 0.1)'; turnBanner.style.color = '#60a5fa'; turnBanner.style.borderColor = '#3b82f6'; }
         turnBanner.innerText = isSuddenDeath ? `⚡ Sudden Death! แข่งพร้อมกันด่วน!` : `🏎️ Simultaneous Race! กดแข่งพร้อมกันได้เลย`;
         if (playerResults[myId]?.scores[currentRound - 1] === undefined && !isRunning) actionBtn.disabled = false;
       } else {
         if (isMyTurn) {
-          if (!isSuddenDeath) { turnBanner.style.background = '#d4edda'; turnBanner.style.color = '#155724'; }
+          if (!isSuddenDeath) { turnBanner.style.background = 'rgba(16, 185, 129, 0.15)'; turnBanner.style.color = '#34d399'; turnBanner.style.borderColor = '#10b981'; }
           turnBanner.innerText = isSuddenDeath ? `⚡ Sudden Death! ถึงตาของคุณแล้ว (${myName})` : `👉 ถึงตาของคุณแล้ว (${myName})`;
           if (!isRunning && actionStage === 0) actionBtn.disabled = false;
         } else {
-          if (!isSuddenDeath) { turnBanner.style.background = '#fff3cd'; turnBanner.style.color = '#856404'; }
+          if (!isSuddenDeath) { turnBanner.style.background = 'rgba(245, 158, 11, 0.1)'; turnBanner.style.color = '#fbbf24'; turnBanner.style.borderColor = '#f59e0b'; }
           turnBanner.innerText = `⏳ กำลังรอตาของ: ${activePlayerName}`;
           actionBtn.disabled = true;
         }
@@ -781,13 +963,12 @@
     actionBtn.className = 'btn-circle';
     actionBtn.innerText = 'START';
     timeDisplay.innerText = "00:00.00";
-    gameStatus.innerText = "กด START เพื่อเริ่มจับเวลา";
+    gameStatus.innerText = "กด START หรือ Spacebar เพื่อเริ่มจับเวลา";
   }
 
   function renderScoreboard() {
     scoreList.innerHTML = '';
     
-    // Header text setup based on rounds
     let headerRounds = [];
     for(let r=1; r<=maxRounds; r++) {
       headerRounds.push(r > 3 ? `SD${r-3}` : r);
@@ -808,10 +989,10 @@
       let scoresTxt = [];
       for (let i = 0; i < maxRounds; i++) {
         if (p.scores[i] !== null && p.scores[i] !== undefined) {
-          scoresTxt.push(`<b>${p.scores[i].toFixed(1)}%</b><br><small style="color:#777;">(${p.rawTimes[i]})</small>`);
+          scoresTxt.push(`<b>${p.scores[i].toFixed(1)}%</b><br><small style="color:var(--text-muted);">(${p.rawTimes[i]})</small>`);
         } else scoresTxt.push('-');
       }
-      const totalTxt = p.avgAcc !== null ? `<b style="color:#28a745;">${p.avgAcc.toFixed(2)}%</b>` : '-';
+      const totalTxt = p.avgAcc !== null ? `<b style="color:#34d399;">${p.avgAcc.toFixed(2)}%</b>` : '-';
       
       let kickBtnHtml = (isHost && pId !== myId) ? `<button class="btn-danger-sm" onclick="kickPlayer('${pId}')">เตะ</button>` : '';
       row.innerHTML = `
@@ -839,6 +1020,21 @@
     if (debuffInterval) clearInterval(debuffInterval);
     activeDebuff = null;
   }
+
+  // Keydown Handler for Spacebar Control
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' || e.key === ' ') {
+      const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+      if (activeTag === 'input' || activeTag === 'select' || activeTag === 'textarea') return;
+
+      if (gameSection.style.display !== 'none' && !actionBtn.disabled) {
+        e.preventDefault();
+        actionBtn.classList.add('space-active');
+        actionBtn.click();
+        setTimeout(() => actionBtn.classList.remove('space-active'), 120);
+      }
+    }
+  });
 
   // Action Button Logic
   actionBtn.addEventListener('click', () => {
@@ -887,7 +1083,6 @@
       }
 
     } else if (actionStage === 10 || actionStage === 11) {
-      // REFLEX FOUL
       clearReflexTimers(); stopDebuffLoop();
       playFoulSound(); triggerShake(); triggerHaptic([200, 100, 200]);
       isRunning = false; actionStage = 0; actionBtn.disabled = true;
@@ -898,7 +1093,6 @@
       submitRawScore({ foul: true, bet985: isBetChecked });
 
     } else if (actionStage === 12) {
-      // REFLEX SUCCESS
       playFinalStopSound(); stopDebuffLoop();
       isRunning = false;
       const reactionSec = (performance.now() - greenTime) / 1000;
@@ -926,7 +1120,7 @@
       actionBtn.disabled = true; actionBtn.className = 'btn-circle'; actionBtn.innerText = 'DONE';
 
       if (gameMode === 'dual_target') {
-        timeDisplay.innerHTML = `<span style="font-size:1rem;">S1:${formatTime(recordedTime1)} | S2:${formatTime(finalTime)}</span>`;
+        timeDisplay.innerHTML = `<span style="font-size:1.1rem;">S1:${formatTime(recordedTime1)} | S2:${formatTime(finalTime)}</span>`;
         const acc1 = calcAccuracy(recordedTime1, targetTime.t1);
         const acc2 = calcAccuracy(finalTime, targetTime.t2);
         checkAndSavePB((acc1 + acc2) / 2);
@@ -961,7 +1155,7 @@
         timeDisplay.innerText = "??:??.??";
       } else {
         if (actionStage === 2 && gameMode === 'dual_target') {
-          timeDisplay.innerHTML = `<span style="font-size:1rem; color:#ffa726;">S1:${formatTime(recordedTime1)}</span><br>${formatTime(elapsed)}`;
+          timeDisplay.innerHTML = `<span style="font-size:1.1rem; color:#f59e0b;">S1:${formatTime(recordedTime1)}</span><br>${formatTime(elapsed)}`;
         } else {
           timeDisplay.innerText = formatTime(elapsed);
         }
